@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "EdgeLearn"
+version = "0.1.0"
+description = "Hybrid Voice RAG Assistant"
+authors = []
+readme = "README.md"
+packages = [{include = "src"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+torch = ">=2.0.0"
+transformers = ">=4.30.0"
+sentence-transformers = ">=2.2.2"
+gpt4all = ">=2.5.0"
+faiss-cpu = ">=1.7.4"
+sounddevice = ">=0.4.6"
+# edge-tts = ">=6.1.0" # Optional, we are using Piper now
+pygame = ">=2.5.0"
+# TTS = ">=0.22.0"  <-- REMOVED COQUI
+librosa = ">=0.10.0"
+opencv-python = ">=4.8.0"
+pillow = ">=9.5.0"
+pytesseract = ">=0.3.10"
+pymupdf = ">=1.23.0"
+pypdf2 = ">=3.0.1"
+streamlit = ">=1.25.0"
+streamlit-webrtc = ">=0.47.0"
+plotly = ">=5.15.0"
+kaleido = ">=0.2.1"
+networkx = ">=3.0" # Back to modern version
+python-dotenv = ">=1.0.0"
+tqdm = ">=4.65.0"
+requests = ">=2.31.0"
+psutil = ">=5.9.0"
+gputil = ">=1.4.0"
+nltk = ">=3.8.1"
+soundfile = ">=0.12.1"
+webrtcvad = ">=2.0.10"
+pandas = ">=2.0.0" # Back to modern version
+numpy = ">=1.24.0" # Back to modern version
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

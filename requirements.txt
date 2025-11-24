@@ -1,0 +1,53 @@
+
+# Core AI Libraries
+torch>=2.0.0
+transformers>=4.30.0
+sentence-transformers>=2.2.2
+gpt4all>=2.5.0
+# faster-whisper>=0.9.0 # Removed, using standard transformers Whisper
+faiss-cpu>=1.7.4 # New: for FAISS indexing
+
+# Audio Processing
+sounddevice>=0.4.6
+# pyttsx3>=2.90 # Removed
+edge-tts>=6.1.0
+# gTTS>=2.4.0      # Removed
+pygame>=2.5.0    # Audio playback support
+TTS>=0.22.0 # New: Coqui TTS for voice cloning
+librosa>=0.10.0 # New: for audio processing/STT
+
+# Computer Vision
+opencv-python>=4.8.0 # New: for enhanced image detection (cv2)
+Pillow>=9.5.0
+pytesseract>=0.3.10
+# PyMuPDF is installed via 'fitz' which is often available in the environment
+
+# PDF Processing
+PyMuPDF>=1.23.0
+PyPDF2>=3.0.1 
+
+# Vector Database
+# chromadb>=0.4.10 # Removed, using FAISS/SQLite
+
+# Web Interface
+streamlit>=1.25.0
+streamlit-webrtc>=0.47.0
+plotly>=5.15.0
+kaleido>=0.2.1
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+networkx>=3.0 # New: for potential KG work
+
+# Utilities
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+requests>=2.31.0
+psutil>=5.9.0
+GPUtil>=1.4.0
+nltk>=3.8.1 # New: for tag extraction
+
+# Audio Format Support
+soundfile>=0.12.1
+webrtcvad>=2.0.10
