@@ -3,57 +3,81 @@
 import { useState, useRef } from "react"
 import FileUploadArea from "./file-upload-area"
 import DocumentList from "./document-list"
-import { toast } from "sonner" // Assuming you have sonner or use your toast library
+import ProcessingResults from "./processing_results"
 
 export default function KnowledgeBase() {
-  // Store actual File objects for uploading
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  // Store file names for display
-  const [documents, setDocuments] = useState<string[]>([])
+  const [documents, setDocuments] = useState<string[]>(["Final_Major_Projectpp (1).pdf"])
   const [isProcessing, setIsProcessing] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showResults, setShowResults] = useState(false)
+  const [error, setError] = useState<string>("")
+  const [processingStats, setProcessingStats] = useState({
+    text_chunks: 0,
+    images_indexed: 0,
+    duration: 0,
+    text_collection_count: 0,
+    image_collection_count: 0,
+    db_path: "./knowledge_base.db",
+    faiss_index_path: "./faiss_index.idx",
+    id_map_path: "./id_map.json",
+    pdf_directory: "./data/pdfs",
+    images_directory: "./data/images",
+  })
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const handleFilesSelected = (files: File[]) => {
-    // 1. Store the actual file objects so we can send them later
-    setSelectedFiles((prev) => [...prev, ...files])
-    
-    // Update the display list
     const newDocs = files.map((f) => f.name)
     setDocuments((prev) => [...prev, ...newDocs])
+    setError("")
   }
 
   const handleProcessDocuments = async () => {
-    if (selectedFiles.length === 0) return
-
     setIsProcessing(true)
+    setError("")
     try {
-      // 2. Create FormData to send files
       const formData = new FormData()
-      selectedFiles.forEach((file) => {
+
+      if (!fileInputRef.current?.files || fileInputRef.current.files.length === 0) {
+        setError("No files to process. Please upload PDFs first.")
+        setIsProcessing(false)
+        return
+      }
+
+      Array.from(fileInputRef.current.files).forEach((file) => {
         formData.append("files", file)
       })
 
-      // 3. Send to Python backend on port 8080
       const response = await fetch("http://localhost:8080/api/upload", {
         method: "POST",
         body: formData,
       })
 
       if (!response.ok) {
-        throw new Error("Upload failed")
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`)
       }
 
-      const result = await response.json()
-      
-      // Optional: Show success message
-      // toast.success(`Processed ${result.files_uploaded} files!`)
-      
-      // Clear queue after success
-      setSelectedFiles([])
-      
+      const data = await response.json()
+
+      if (data.success) {
+        setProcessingStats({
+          text_chunks: data.text_chunks || 0,
+          images_indexed: data.images_indexed || 0,
+          duration: data.duration || 2.5,
+          text_collection_count: data.text_chunks || 0,
+          image_collection_count: data.images_indexed || 0,
+          db_path: "./knowledge_base.db",
+          faiss_index_path: "./faiss_index.idx",
+          id_map_path: "./id_map.json",
+          pdf_directory: "./data/pdfs",
+          images_directory: "./data/images",
+        })
+        setShowResults(true)
+      } else {
+        setError(data.error || "Processing failed")
+      }
     } catch (error) {
-      console.error("Upload error:", error)
-      // toast.error("Failed to process documents")
+      console.error("Processing error:", error)
+      setError(error instanceof Error ? error.message : "An error occurred during processing")
     } finally {
       setIsProcessing(false)
     }
@@ -72,22 +96,38 @@ export default function KnowledgeBase() {
       {/* Upload Area */}
       <FileUploadArea onFilesSelected={handleFilesSelected} fileInputRef={fileInputRef} />
 
-      {/* Process Button */}
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-700 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Document List - comes before process button */}
+      {documents.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="font-serif font-bold text-xl">Uploaded Documents</h2>
+          <DocumentList documents={documents} />
+        </div>
+      )}
+
       {documents.length > 0 && (
         <div className="space-y-4">
           <button
             onClick={handleProcessDocuments}
-            disabled={isProcessing || selectedFiles.length === 0}
+            disabled={isProcessing}
             className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white text-lg font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none flex items-center justify-center gap-2"
           >
             {isProcessing ? (
               <>
                 <span className="inline-block animate-spin">⚙️</span>
-                Processing Materials...
+                <span>Processing Materials...</span>
               </>
             ) : (
-              // Change text based on if there are new files to process
-              <>{selectedFiles.length > 0 ? "🔄 Index & Process Materials" : "✅ All Files Processed"}</>
+              <>
+                <span>🔄</span>
+                <span>Index & Process Materials</span>
+              </>
             )}
           </button>
 
@@ -97,18 +137,10 @@ export default function KnowledgeBase() {
                 <span>Extracting text from PDFs...</span>
               </div>
               <div className="w-full h-2 bg-(--color-bg-tertiary) rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-(--color-primary) to-(--color-accent) animate-pulse" />
+                <div className="h-full bg-gradient-to-r from-blue-500 to-purple-600 animate-pulse" />
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {/* Document List */}
-      {documents.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="font-serif font-bold text-xl">Uploaded Documents</h2>
-          <DocumentList documents={documents} />
         </div>
       )}
 
@@ -117,6 +149,8 @@ export default function KnowledgeBase() {
           <p className="text-lg">No documents yet. Start by uploading your first PDF.</p>
         </div>
       )}
+
+      <ProcessingResults stats={processingStats} isVisible={showResults} onClose={() => setShowResults(false)} />
     </div>
   )
 }
