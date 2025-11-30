@@ -3,19 +3,33 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { message, context } = body
+    const { message } = body
 
-    // Example: const response = await fetch('http://localhost:8000/api/chat', ...)
+    // Connect to Python backend on port 8080
+    const response = await fetch("http://127.0.0.1:8080/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message }),
+    })
 
-    // For now, return a mock response
-    const mockResponse = {
-      response: `I understand you asked: "${message}". Based on your materials, here's what I found...`,
-      images: [],
-      success: true,
+    if (!response.ok) {
+      console.error(`Backend Error: ${response.status}`)
+      return NextResponse.json(
+        { error: `Backend refused connection (${response.status})`, success: false }, 
+        { status: response.status }
+      )
     }
 
-    return NextResponse.json(mockResponse)
+    const data = await response.json()
+    return NextResponse.json(data)
+    
   } catch (error) {
-    return NextResponse.json({ error: "Failed to process request", success: false }, { status: 500 })
+    console.error("Connection Failed:", error)
+    return NextResponse.json(
+      { error: "Could not connect to Python backend. Is it running on port 8080?", success: false }, 
+      { status: 500 }
+    )
   }
 }

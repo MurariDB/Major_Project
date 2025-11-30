@@ -31,15 +31,21 @@ export default function ChatMessage({ message, onImageClick, enableReadAloud }: 
   }
 
   return (
-    <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+    <div className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2 group`}>
+      {message.role === "assistant" && (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm flex-shrink-0 mt-1">
+          🤖
+        </div>
+      )}
+
       <div
-        className={`max-w-xs md:max-w-md lg:max-w-lg px-4 py-3 rounded-2xl ${
+        className={`max-w-md lg:max-w-2xl px-4 py-3 rounded-2xl ${
           message.role === "user"
-            ? "bg-(--color-primary) text-white rounded-br-none"
-            : "bg-(--color-bg-tertiary) text-(--color-text-primary) rounded-bl-none"
+            ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-br-none shadow-md"
+            : "bg-white dark:bg-slate-800 text-gray-900 dark:text-white rounded-bl-none border border-gray-200 dark:border-slate-700 shadow-sm"
         }`}
       >
-        <p className="text-sm leading-relaxed mb-2">{message.content}</p>
+        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</p>
 
         {message.images && message.images.length > 0 && (
           <div className="space-y-2 mt-3">
@@ -49,7 +55,7 @@ export default function ChatMessage({ message, onImageClick, enableReadAloud }: 
                 src={img || "/placeholder.svg"}
                 alt="Response diagram"
                 onClick={() => onImageClick(img)}
-                className="w-full rounded-lg cursor-zoom-in hover:opacity-80 transition-opacity"
+                className="w-full rounded-lg cursor-zoom-in hover:opacity-90 transition-opacity border border-gray-200 dark:border-slate-600"
               />
             ))}
           </div>
@@ -58,12 +64,28 @@ export default function ChatMessage({ message, onImageClick, enableReadAloud }: 
         {message.role === "assistant" && enableReadAloud && (
           <button
             onClick={handleReadAloud}
-            className="mt-2 text-xs font-medium flex items-center gap-1 hover:opacity-80 transition-opacity"
+            className="mt-3 text-xs font-medium flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors"
           >
-            {isReadingAloud ? "⏸️ Pause" : "🔊 Read aloud"}
+            {isReadingAloud ? (
+              <>
+                <span>⏸️</span>
+                <span>Pause</span>
+              </>
+            ) : (
+              <>
+                <span>🔊</span>
+                <span>Read aloud</span>
+              </>
+            )}
           </button>
         )}
       </div>
+
+      {message.role === "user" && (
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center text-white text-sm flex-shrink-0 mt-1">
+          👤
+        </div>
+      )}
     </div>
   )
 }

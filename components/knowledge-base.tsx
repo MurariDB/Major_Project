@@ -3,22 +3,60 @@
 import { useState, useRef } from "react"
 import FileUploadArea from "./file-upload-area"
 import DocumentList from "./document-list"
+import { toast } from "sonner" // Assuming you have sonner or use your toast library
 
 export default function KnowledgeBase() {
+  // Store actual File objects for uploading
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  // Store file names for display
   const [documents, setDocuments] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFilesSelected = (files: File[]) => {
+    // 1. Store the actual file objects so we can send them later
+    setSelectedFiles((prev) => [...prev, ...files])
+    
+    // Update the display list
     const newDocs = files.map((f) => f.name)
     setDocuments((prev) => [...prev, ...newDocs])
   }
 
   const handleProcessDocuments = async () => {
+    if (selectedFiles.length === 0) return
+
     setIsProcessing(true)
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-    setIsProcessing(false)
+    try {
+      // 2. Create FormData to send files
+      const formData = new FormData()
+      selectedFiles.forEach((file) => {
+        formData.append("files", file)
+      })
+
+      // 3. Send to Python backend on port 8080
+      const response = await fetch("http://localhost:8080/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Upload failed")
+      }
+
+      const result = await response.json()
+      
+      // Optional: Show success message
+      // toast.success(`Processed ${result.files_uploaded} files!`)
+      
+      // Clear queue after success
+      setSelectedFiles([])
+      
+    } catch (error) {
+      console.error("Upload error:", error)
+      // toast.error("Failed to process documents")
+    } finally {
+      setIsProcessing(false)
+    }
   }
 
   return (
@@ -39,8 +77,8 @@ export default function KnowledgeBase() {
         <div className="space-y-4">
           <button
             onClick={handleProcessDocuments}
-            disabled={isProcessing}
-            className="w-full btn btn-primary text-lg py-3 text-white font-bold"
+            disabled={isProcessing || selectedFiles.length === 0}
+            className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white text-lg font-bold rounded-xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none flex items-center justify-center gap-2"
           >
             {isProcessing ? (
               <>
@@ -48,7 +86,8 @@ export default function KnowledgeBase() {
                 Processing Materials...
               </>
             ) : (
-              <>🔄 Index & Process Materials</>
+              // Change text based on if there are new files to process
+              <>{selectedFiles.length > 0 ? "🔄 Index & Process Materials" : "✅ All Files Processed"}</>
             )}
           </button>
 

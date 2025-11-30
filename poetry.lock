@@ -786,14 +786,14 @@ packaging = "*"
 
 [[package]]
 name = "fastapi"
-version = "0.122.0"
+version = "0.123.0"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
 files = [
-    {file = "fastapi-0.122.0-py3-none-any.whl", hash = "sha256:a456e8915dfc6c8914a50d9651133bd47ec96d331c5b44600baa635538a30d67"},
-    {file = "fastapi-0.122.0.tar.gz", hash = "sha256:cd9b5352031f93773228af8b4c443eedc2ac2aa74b27780387b853c3726fb94b"},
+    {file = "fastapi-0.123.0-py3-none-any.whl", hash = "sha256:cb56e69e874afa897bd3416c8a3dbfdae1730d0a308d4c63303f3f4b44136ae4"},
+    {file = "fastapi-0.123.0.tar.gz", hash = "sha256:1410678b3c44418245eec85088b15140d894074b86e66061017e2b492c09b138"},
 ]
 
 [package.dependencies]
@@ -4663,4 +4663,4 @@ dev = ["check-manifest", "memory_profiler", "nose", "psutil", "unittest2", "zest
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<3.12"
-content-hash = "65595f185ccde6e0bd54dc0d514583f0aa9c4f2fac1974b3ee985db732cd2079"
+content-hash = "680b4c861abfe2981effc924814576c585348696fc608531e24360ddaf8b440a"

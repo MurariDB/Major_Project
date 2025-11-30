@@ -9,9 +9,13 @@ from fastapi.responses import JSONResponse
 import os
 import sys
 from typing import List
+import uvicorn
 
 # Add src to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+
+# Import config directly to fix the "AttributeError"
+from src.utils.config import config
 
 app = FastAPI(title="EdgeLearn API")
 
@@ -52,6 +56,7 @@ async def chat(request: dict):
             "success": True,
         }
     except Exception as e:
+        print(f"❌ Chat Error: {e}") # Print error to terminal
         return JSONResponse(
             status_code=500,
             content={"error": str(e), "success": False}
@@ -65,10 +70,12 @@ async def upload_documents(files: List[UploadFile] = File(...)):
     
     try:
         saved_count = 0
+        # FIX: Use the imported 'config' object, not 'assistant.config'
+        pdf_dir = config.system.pdf_dir
+        os.makedirs(pdf_dir, exist_ok=True)
+
         for file in files:
             if file.filename.endswith('.pdf'):
-                pdf_dir = assistant.config.system.pdf_dir
-                os.makedirs(pdf_dir, exist_ok=True)
                 save_path = os.path.join(pdf_dir, file.filename)
                 
                 content = await file.read()
@@ -77,6 +84,7 @@ async def upload_documents(files: List[UploadFile] = File(...)):
                 saved_count += 1
         
         # Process all documents
+        print(f"📂 Processing {saved_count} uploaded files...")
         result = assistant.ingest_documents()
         
         return {
@@ -86,6 +94,9 @@ async def upload_documents(files: List[UploadFile] = File(...)):
             "images_indexed": result.get("images_indexed", 0),
         }
     except Exception as e:
+        print(f"❌ Upload Error: {e}") # Print error to terminal
+        import traceback
+        traceback.print_exc() # Print full crash report
         return JSONResponse(
             status_code=500,
             content={"error": str(e), "success": False}
@@ -97,7 +108,8 @@ async def list_documents():
     if not assistant:
         raise HTTPException(status_code=503, detail="Service not initialized")
     
-    pdf_dir = assistant.config.system.pdf_dir
+    # FIX: Use the imported 'config' object
+    pdf_dir = config.system.pdf_dir
     documents = []
     
     if os.path.exists(pdf_dir):
@@ -117,7 +129,6 @@ async def process_voice(request: dict):
         raise HTTPException(status_code=503, detail="Service not initialized")
     
     try:
-        # The audio would come as base64 or file reference
         result = assistant.process_voice_query()
         return {
             "transcription": result.get("query", ""),
@@ -126,13 +137,14 @@ async def process_voice(request: dict):
             "success": result.get("success", False),
         }
     except Exception as e:
+        print(f"❌ Voice Error: {e}")
         return JSONResponse(
             status_code=500,
             content={"error": str(e), "success": False}
         )
 
 if __name__ == "__main__":
-    import uvicorn
     print("🚀 Starting EdgeLearn API Server...")
-    print("📝 Documentation available at http://localhost:8000/docs")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("📝 Documentation available at http://localhost:8080/docs")
+    # Changed port to 8080 to match your setup
+    uvicorn.run(app, host="0.0.0.0", port=8080)
