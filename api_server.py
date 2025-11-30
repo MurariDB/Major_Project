@@ -179,6 +179,16 @@ async def get_database_stats():
             status_code=500,
             content={"error": str(e)}
         )
+from fastapi.responses import FileResponse
+
+# Add this NEW endpoint after the /health endpoint
+@app.get("/api/images/{pdf_name}/{page}/{filename}")
+async def serve_image(pdf_name: str, page: str, filename: str):
+    """Serve image files"""
+    image_path = os.path.join(config.rag.image_dir, pdf_name, page, filename)
+    if os.path.exists(image_path):
+        return FileResponse(image_path)
+    raise HTTPException(status_code=404, detail="Image not found")
 
 if __name__ == "__main__":
     import uvicorn

@@ -50,27 +50,65 @@ export default function StudyRoom() {
     }
 
     setMessages((prev) => [...prev, userMessage])
+    const currentInput = inputValue
     setInputValue("")
     setIsLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      console.log("[Study Room] Sending message:", currentInput)
+      
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: currentInput }),
+      })
 
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: "assistant",
-      content: `I understand you asked about "${inputValue}". Based on your materials, here's what I found... [This would be replaced with actual AI response]`,
-      images: Math.random() > 0.5 ? ["/abstract-diagram.png"] : undefined,
-      timestamp: new Date(),
-    }
+      console.log("[Study Room] Response status:", response.status)
 
-    setMessages((prev) => [...prev, assistantMessage])
-    setIsLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Server error: ${response.status}`)
+      }
 
-    // Text-to-speech if enabled
-    if (enableReadAloud && "speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(assistantMessage.content)
-      speechSynthesis.speak(utterance)
+      const data = await response.json()
+      console.log("[Study Room] Response data:", data)
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to get response from AI")
+      }
+
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: data.response || "I received your question but couldn't generate a response.",
+        images: data.images || [],
+        timestamp: new Date(),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+
+      // Text-to-speech if enabled
+      if (enableReadAloud && "speechSynthesis" in window && data.response) {
+        const utterance = new SpeechSynthesisUtterance(data.response)
+        speechSynthesis.speak(utterance)
+      }
+    } catch (error) {
+      console.error("[Study Room] Error:", error)
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: error instanceof Error 
+          ? `❌ Error: ${error.message}\n\nMake sure the Python backend is running:\n1. Open terminal\n2. Run: python api_server.py\n3. Check http://localhost:8080/health`
+          : "❌ An unknown error occurred. Please check the console.",
+        timestamp: new Date(),
+      }
+      
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -178,14 +216,15 @@ export default function StudyRoom() {
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
                 placeholder="Ask me anything about your materials..."
-                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all"
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all disabled:opacity-50"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading}
                 className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none"
               >
-                Send
+                {isLoading ? "..." : "Send"}
               </button>
             </div>
           )}

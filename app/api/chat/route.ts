@@ -4,36 +4,35 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { message } = body
-
     const backendUrl = process.env.BACKEND_URL || "http://localhost:8080"
-
-    console.log("[v0] Sending chat to backend:", message)
 
     const response = await fetch(`${backendUrl}/api/chat`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ message }),
     })
 
-    if (!response.ok) {
-      console.log("[v0] Backend error:", response.status)
-      throw new Error(`Backend returned ${response.status}`)
-    }
+    if (!response.ok) throw new Error(`Backend returned ${response.status}`)
 
     const data = await response.json()
-    console.log("[v0] Backend response:", data)
+    
+    // Convert local file paths to backend URLs
+    if (data.images && Array.isArray(data.images)) {
+      data.images = data.images.map((path: string) => {
+        const match = path.match(/([^/]+)\/page_(\d+)\/([^/]+)$/)
+        if (match) {
+          const [, pdfName, pageNum, filename] = match
+          return `${backendUrl}/api/images/${pdfName}/page_${pageNum}/${filename}`
+        }
+        return path
+      })
+    }
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error("[v0] Chat error:", error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "Failed to process request",
-        success: false,
-      },
-      { status: 500 },
+      { error: error instanceof Error ? error.message : "Failed", success: false },
+      { status: 500 }
     )
   }
 }
