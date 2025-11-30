@@ -11,7 +11,7 @@ from .vector_db import VectorDatabase
 from ..utils.config import config
 from ..utils.mmr_ranker import MMRRanker
 from ..utils.knowledge_graph import KnowledgeGraphLoader
-
+from ..utils.graph_retrieval import GraphRetrieval
 class RetrievalSystem:
     """Hybrid retrieval system for text and images"""
     
@@ -69,7 +69,41 @@ class RetrievalSystem:
             final_results = [r for r in kg_enhanced_results if r['id'] in selected_ids]
             selected_docs = [r['text'] for r in final_results]
             selected_metas = [{'source': r['source_pdf'], 'page': r['page_num'], 'id': r['id']} for r in final_results]
-            
+
+            # NEW: Graph expansion
+            try:
+                graph = GraphRetrieval(self.vector_db)
+                initial_ids = [r['id'] for r in final_results]
+                expanded_ids = graph.expand_results(initial_ids, max_expansion=2)
+                
+                # Fetch expanded chunks
+                if len(expanded_ids) > len(initial_ids):
+                    with self.vector_db._connection_lock:
+                        conn = self.vector_db._get_thread_safe_connection()
+                        cursor = conn.cursor()
+                        
+                        placeholders = ','.join('?' * len(expanded_ids))
+                        expanded_results = cursor.execute(f"""
+                            SELECT id, text, source_pdf, page_num
+                            FROM paragraphs
+                            WHERE id IN ({placeholders})
+                        """, expanded_ids).fetchall()
+                        
+                        # Add new chunks
+                        for row in expanded_results:
+                            para_id, text, source_pdf, page_num = row
+                            if para_id not in initial_ids:
+                                selected_docs.append(text)
+                                selected_metas.append({
+                                    'source': source_pdf,
+                                    'page': page_num,
+                                    'id': para_id
+                                })
+                    
+                    print(f"[INFO] Graph expanded results from {len(initial_ids)} to {len(selected_docs)} chunks")
+            except Exception as e:
+                print(f"[WARN] Graph expansion failed: {e}")
+
             return selected_docs, selected_metas
             
         except Exception as e:
@@ -190,6 +224,120 @@ class RetrievalSystem:
             import traceback
             traceback.print_exc()
             return []
+    def retrieve_images_simplified(self, query: str, text_embedder, 
+                               retrieved_text_pages: Set[int] = None, 
+                               top_k: int = 3) -> List[str]:
+        """
+        Simplified image retrieval using TF-IDF on surrounding text.
+        No CLIP dependency - uses context matching only.
+        """
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+            
+            # Fetch all images
+            with self.vector_db._connection_lock:
+                conn = self.vector_db._get_thread_safe_connection()
+                cursor = conn.cursor()
+                results = cursor.execute("""
+                    SELECT id, caption, ocr_text, data, page_num, source_pdf
+                    FROM images
+                """).fetchall()
+            
+            if not results:
+                return []
+            
+            # Build corpus for TF-IDF
+            corpus = [query]  # First doc is query
+            image_data = []
+            
+            for row in results:
+                img_id, caption, ocr_text, data, page_num, source_pdf = row
+                
+                # Combine image text with surrounding paragraph text
+                image_text = f"{caption or ''} {ocr_text or ''}"
+                
+                # Get text from same page
+                para_results = cursor.execute("""
+                    SELECT text FROM paragraphs
+                    WHERE source_pdf = ? AND page_num = ?
+                    LIMIT 3
+                """, (source_pdf, page_num)).fetchall()
+                
+                surrounding_text = " ".join([p[0] for p in para_results])
+                combined_text = f"{image_text} {surrounding_text}"
+                
+                corpus.append(combined_text)
+                image_data.append({
+                    'id': img_id,
+                    'data': data,
+                    'page_num': page_num,
+                    'source_pdf': source_pdf
+                })
+            
+            # Compute TF-IDF similarity
+            try:
+                vectorizer = TfidfVectorizer(
+                    max_features=500,
+                    stop_words='english',
+                    ngram_range=(1, 2)
+                )
+                tfidf_matrix = vectorizer.fit_transform(corpus)
+                query_vec = tfidf_matrix[0:1]
+                doc_vecs = tfidf_matrix[1:]
+                
+                similarities = cosine_similarity(query_vec, doc_vecs).flatten()
+            except ValueError:
+                return []
+            
+            # Score images
+            scored_images = []
+            for i, img in enumerate(image_data):
+                score = float(similarities[i])
+                
+                # Proximity boost: if on same page as retrieved text
+                if retrieved_text_pages and img['page_num'] in retrieved_text_pages:
+                    score += 0.3
+                
+                # Single threshold
+                if score > 0.15:
+                    scored_images.append((score, img))
+            
+            # Sort and take top-k
+            scored_images.sort(reverse=True, key=lambda x: x[0])
+            top_images = [img for _, img in scored_images[:top_k]]
+            
+            # Restore to disk
+            final_paths = []
+            for img in top_images:
+                try:
+                    if not img['data']:
+                        continue
+                    
+                    img_bytes = base64.b64decode(img['data'])
+                    save_dir = os.path.join(
+                        config.rag.image_dir,
+                        img['source_pdf'],
+                        f"page_{img['page_num']}"
+                    )
+                    os.makedirs(save_dir, exist_ok=True)
+                    file_path = os.path.join(save_dir, f"{img['id']}.png")
+                    
+                    if not os.path.exists(file_path):
+                        with open(file_path, "wb") as f:
+                            f.write(img_bytes)
+                    
+                    final_paths.append(file_path)
+                except Exception as e:
+                    print(f"[WARN] Failed to restore image: {e}")
+            
+            return final_paths
+            
+        except Exception as e:
+            print(f"[ERROR] Image retrieval failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return []    
     
     def retrieve_multimodal(self, query: str, text_embedder, clip_model, clip_processor, 
                            text_top_k: int = 5, image_top_k: int = None) -> Tuple[List[str], List[Dict], List[str]]:
@@ -198,10 +346,16 @@ class RetrievalSystem:
         text_docs, text_metas = self.retrieve_text(query, text_embedder, text_top_k)
         retrieved_pages = self.extract_pages_from_text_metadata(text_metas)
         
-        image_paths = self.retrieve_images_hybrid(
+        """image_paths = self.retrieve_images_hybrid(
             query=query,
             clip_model=clip_model,
             clip_processor=clip_processor,
+            text_embedder=text_embedder,
+            retrieved_text_pages=retrieved_pages,
+            top_k=image_top_k
+        )"""
+        image_paths = self.retrieve_images_simplified(
+            query=query,
             text_embedder=text_embedder,
             retrieved_text_pages=retrieved_pages,
             top_k=image_top_k

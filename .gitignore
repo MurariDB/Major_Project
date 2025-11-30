@@ -68,3 +68,7 @@ voice_input.wav
 
 # --- Streamlit ---
 .streamlit/secrets.toml
+
+# --- Logs ---
+logs/*.log      
+logs/*.txt

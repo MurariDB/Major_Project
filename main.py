@@ -178,7 +178,7 @@ class VoiceRAGAssistant:
 
         try:
             # --- CRITICAL FIX: Load CLIP properly before using it ---
-            clip_model, clip_processor = self.image_processor.get_clip_model()
+            """clip_model, clip_processor = self.image_processor.get_clip_model()
             
             # 1. & 2. Hybrid Retrieval
             text_docs, text_metas, image_paths = self.retrieval_system.retrieve_multimodal(
@@ -186,6 +186,13 @@ class VoiceRAGAssistant:
                 text_embedder=self.text_processor.get_embedder(),
                 clip_model=clip_model,           # Pass actual loaded model
                 clip_processor=clip_processor    # Pass actual loaded processor
+            )"""
+            # Hybrid Retrieval (no CLIP needed now)
+            text_docs, text_metas, image_paths = self.retrieval_system.retrieve_multimodal(
+                query=query,
+                text_embedder=self.text_processor.get_embedder(),
+                clip_model=None,  # Not used anymore
+                clip_processor=None  # Not used anymore
             )
 
             # 3. Generate Response
@@ -215,6 +222,7 @@ class VoiceRAGAssistant:
                 "query": query,
                 "response": response,
                 "images": image_paths,
+                "contexts": text_docs,
                 "text_sources": len(text_docs),
                 "processing_time": processing_time
             }

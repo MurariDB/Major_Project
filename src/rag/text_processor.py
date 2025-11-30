@@ -89,44 +89,64 @@ class TextProcessor:
     
     def _extract_enhanced_tags(self, text: str) -> List[str]:
         """
-        Extract meaningful tags from text using NLTK (Noun extraction + Pattern matching)
+        Dynamic tag extraction using TF-IDF + domain patterns + noun phrases
         """
         try:
-            # 1. Scientific pattern matching
-            scientific_patterns = [
-                r'\b[A-Z][a-z]+(?:ose|ase|ine|ate|ide)\b', # chemicals
-                r'\b(?:test|experiment|activity|method|procedure)\b', # processes
-                r'\b(?:starch|protein|carbohydrate|fat|glucose|enzyme)\b', # biology
-            ]
-            pattern_tags = []
-            for pattern in scientific_patterns:
+            tags = []
+            
+            # Strategy 1: Domain-specific patterns (keep existing biology patterns + add more)
+            patterns = {
+                'chemical': r'\b[A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)*\b|\b\w+ose\b|\b\w+ase\b|\b\w+ide\b|\b\w+ate\b',
+                'process': r'\b(?:test|experiment|activity|method|procedure|analysis|synthesis)\b',
+                'biology': r'\b(?:starch|protein|carbohydrate|fat|glucose|enzyme|cell|tissue|organ)\b',
+                'measurement': r'\d+\.?\d*\s*(?:mm|cm|m|kg|g|mg|L|mL|°C|°F|%)',
+                'acronym': r'\b[A-Z]{2,6}\b',
+            }
+            
+            for pattern in patterns.values():
                 matches = re.findall(pattern, text, re.IGNORECASE)
-                pattern_tags.extend([m.lower() for m in matches])
-
-            # 2. Noun extraction
+                tags.extend([m.lower().strip() for m in matches if len(m) > 1])
+            
+            # Strategy 2: Noun extraction with better filtering
             tokens = word_tokenize(text.lower())
             tagged = pos_tag(tokens)
+            
+            # Get nouns
             nouns = [word for word, tag in tagged if tag in ['NN', 'NNS', 'NNP', 'NNPS']]
             
-            all_tags = pattern_tags + nouns 
-            stop_words = set(stopwords.words('english'))
+            # Get adjective-noun pairs (e.g., "red blood")
+            for i in range(len(tagged) - 1):
+                if tagged[i][1].startswith('JJ') and tagged[i+1][1].startswith('NN'):
+                    bigram = f"{tagged[i][0]}_{tagged[i+1][0]}"
+                    tags.append(bigram)
             
-            # 3. Filtering
+            tags.extend(nouns)
+            
+            # Strategy 3: Term frequency ranking
+            stop_words = set(stopwords.words('english'))
+            custom_stop = {
+                'image', 'content', 'figure', 'table', 'page', 'text', 'section',
+                'chapter', 'shown', 'given', 'following', 'example', 'result'
+            }
+            stop_words.update(custom_stop)
+            
+            # Filter and count
             filtered_tags = [
-                tag for tag in all_tags
+                tag for tag in tags
                 if tag not in stop_words
                 and len(tag) > 2
-                and tag not in ['image', 'content', 'figure', 'table', 'page', 'text', 'section']
+                and not tag.isdigit()
+                and tag.isalnum() or '_' in tag  # Allow underscores for bigrams
             ]
-
-            # Return top 5 most frequent tags
+            
+            # Return top 5 most frequent
             tag_counts = Counter(filtered_tags)
             return [tag for tag, _ in tag_counts.most_common(5)]
             
         except Exception as e:
-            # Fallback if NLTK fails
+            print(f"[WARN] Tag extraction failed: {e}")
             return []
-    
+            
     def process_pdfs_directory(self, pdf_dir: str = None) -> Dict[str, Any]:
         """Process all PDFs in a directory and return all paragraphs for indexing"""
         if pdf_dir is None: pdf_dir = config.system.pdf_dir

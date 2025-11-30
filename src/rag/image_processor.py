@@ -127,11 +127,54 @@ class ImageProcessor:
         img = Image.open(io.BytesIO(img_data))
         return img, img_data
     
-    def _generate_tags(self, text_content: str):
-        """Simple keyword matching for image tags"""
-        keywords = re.findall(r'\b(?:starch|protein|enzyme|diagram|figure|test|experiment|activity|cell|bone|joint|plant)\b', text_content.lower())
-        return list(dict.fromkeys([tag for tag, _ in Counter(keywords).most_common(5)]))
-
+    def _generate_tags(self, text_content: str) -> List[str]:
+        """
+        Dynamic tag generation for images using same strategy as text processor
+        """
+        try:
+            tags = []
+            
+            # Domain patterns
+            patterns = {
+                'chemical': r'\b[A-Z][a-z]?\d*(?:[A-Z][a-z]?\d*)*\b|\b\w+ose\b|\b\w+ase\b',
+                'process': r'\b(?:test|experiment|diagram|figure|chart|graph|activity)\b',
+                'biology': r'\b(?:starch|protein|enzyme|cell|tissue|bone|joint|plant|animal)\b',
+                'measurement': r'\d+\.?\d*\s*(?:mm|cm|°C|°F|%)',
+            }
+            
+            for pattern in patterns.values():
+                matches = re.findall(pattern, text_content, re.IGNORECASE)
+                tags.extend([m.lower() for m in matches if len(m) > 1])
+            
+            # Add nouns from text
+            try:
+                from nltk.tokenize import word_tokenize
+                from nltk.tag import pos_tag
+                from nltk.corpus import stopwords
+                
+                tokens = word_tokenize(text_content.lower())
+                tagged = pos_tag(tokens)
+                nouns = [word for word, tag in tagged if tag.startswith('NN')]
+                
+                stop_words = set(stopwords.words('english'))
+                custom_stop = {'image', 'figure', 'diagram', 'page', 'text'}
+                
+                filtered_nouns = [
+                    n for n in nouns 
+                    if n not in stop_words 
+                    and n not in custom_stop 
+                    and len(n) > 2
+                ]
+                tags.extend(filtered_nouns)
+            except:
+                pass
+            
+            # Return top 5
+            tag_counts = Counter(tags)
+            return [tag for tag, _ in tag_counts.most_common(5)]
+            
+        except Exception as e:
+            return []
     def process_pdfs_directory(self, pdf_dir: str = None, text_embedder=None) -> Dict[str, Any]:
         """Process images from all PDFs in a directory"""
         self._ensure_model_loaded()
