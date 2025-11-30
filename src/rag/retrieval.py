@@ -74,7 +74,7 @@ class RetrievalSystem:
             try:
                 graph = GraphRetrieval(self.vector_db)
                 initial_ids = [r['id'] for r in final_results]
-                expanded_ids = graph.expand_results(initial_ids, max_expansion=2)
+                expanded_ids = graph.expand_results(initial_ids, max_expansion=1)
                 
                 # Fetch expanded chunks
                 if len(expanded_ids) > len(initial_ids):

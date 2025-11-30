@@ -88,7 +88,7 @@ class GPT4AllHandler:
         return full_response.strip()
     
     def chat_with_context(self, query: str, context: List[str], 
-                         system_prompt: str = None) -> str:
+                     system_prompt: str = None) -> str:
         """Generate response with RAG context"""
         self._ensure_model_loaded()
         if system_prompt is None:
@@ -97,13 +97,22 @@ class GPT4AllHandler:
         # Build the complete prompt
         prompt = system_prompt + "\n\n### Context ###\n"
         
-        for i, ctx in enumerate(context, 1):
-            prompt += f"**Context {i}:**\n{ctx}\n\n"
+        # TRUNCATE CONTEXT TO FIT MODEL
+        max_context_length = 1200  # Reserve 500 tokens for system + query + response
+        current_length = 0
+        truncated_context = []
         
+        for i, ctx in enumerate(context, 1):
+            ctx_tokens = len(ctx.split())  # Rough token estimate
+            if current_length + ctx_tokens > max_context_length:
+                break
+            truncated_context.append(f"**Context {i}:**\n{ctx}\n\n")
+            current_length += ctx_tokens
+        
+        prompt += "".join(truncated_context)
         prompt += f"### Question ###\n{query}\n\n### Answer ###\n"
         
-        return self.generate_response(prompt)
-    
+        return self.generate_response(prompt)    
     def get_model_info(self) -> Dict[str, Any]:
         """Get model information"""
         return {

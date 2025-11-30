@@ -192,7 +192,8 @@ class VoiceRAGAssistant:
                 query=query,
                 text_embedder=self.text_processor.get_embedder(),
                 clip_model=None,  # Not used anymore
-                clip_processor=None  # Not used anymore
+                clip_processor=None ,
+                 text_top_k=3 # Not used anymore
             )
 
             # 3. Generate Response
