@@ -16,17 +16,9 @@ class GPT4AllHandler:
         self.temperature = config.system.temperature
         
         # Initialize model
-        #self._initialize_model()
+        self._initialize_model()
     
-    def _ensure_model_loaded(self):
-        if self.model is None:
-            try:
-                print(f"[INFO] Lazy loading GPT4All model: {self.model_name}")
-                self.model = GPT4All(self.model_name)
-                print("[INFO] GPT4All model loaded successfully")
-            except Exception as e:
-                print(f"[ERROR] Failed to load GPT4All model: {e}")
-                raise
+    
 
     def _initialize_model(self):
         """Initialize GPT4All model"""
@@ -41,7 +33,7 @@ class GPT4AllHandler:
     def generate_response(self, prompt: str, max_tokens: int = None, 
                          temperature: float = None, streaming: bool = False) -> str:
         """Generate response from the model"""
-        self._ensure_model_loaded()
+        
         if self.model is None:
             raise RuntimeError("Model not initialized")
         
@@ -90,7 +82,6 @@ class GPT4AllHandler:
     def chat_with_context(self, query: str, context: List[str], 
                      system_prompt: str = None) -> str:
         """Generate response with RAG context"""
-        self._ensure_model_loaded()
         if system_prompt is None:
             system_prompt = config.get_system_prompt()
         

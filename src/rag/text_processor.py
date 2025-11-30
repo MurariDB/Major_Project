@@ -15,7 +15,7 @@ from nltk.tag import pos_tag
 from nltk.corpus import stopwords
 from .vector_db import VectorDatabase
 from ..utils.config import config
-
+from ..utils.logger import logger
 class TextProcessor:
     """Text processing and indexing"""
     
@@ -27,11 +27,11 @@ class TextProcessor:
     def _initialize_embedder(self):
         """Initialize text embedder"""
         try:
-            print("[INFO] Loading text embedder...")
+            logger.info("Loading text embedder...")
             self.embedder = SentenceTransformer(config.models.embedding_model_name)
-            print("[INFO] Text embedder loaded successfully")
+            logger.info("Text embedder loaded successfully")
         except Exception as e:
-            print(f"[ERROR] Failed to load text embedder: {e}")
+            logger.error(f"Failed to load text embedder: {e}")
             raise
     
     def extract_pdf_text_by_pages(self, pdf_path: str) -> List[Tuple[int, str]]:
@@ -45,7 +45,7 @@ class TextProcessor:
                     pages.append((page_num, page_text))
             return pages
         except Exception as e:
-            print(f"[ERROR] Failed to extract text from {pdf_path}: {e}")
+            logger.error(f"Failed to extract text from PDF {pdf_path}: {e}")
             return []
     
     def chunk_text(self, text: str, max_words: int = None, overlap_words: int = None) -> List[str]:
@@ -144,7 +144,7 @@ class TextProcessor:
             return [tag for tag, _ in tag_counts.most_common(5)]
             
         except Exception as e:
-            print(f"[WARN] Tag extraction failed: {e}")
+            logger.error(f"Failed to extract tags: {e}")
             return []
             
     def process_pdfs_directory(self, pdf_dir: str = None) -> Dict[str, Any]:
@@ -164,7 +164,7 @@ class TextProcessor:
         
         for pdf_path in pdf_files:
             pdf_name = os.path.basename(pdf_path)
-            print(f"[INFO] Processing text: {pdf_name}")
+            logger.info(f"Processing text from {pdf_name}...")
             
             try:
                 pages = self.extract_pdf_text_by_pages(pdf_path)
@@ -196,11 +196,11 @@ class TextProcessor:
                 successful_pdfs += 1
                 
             except Exception as e:
-                print(f"[ERROR] Failed to process {pdf_name}: {e}")
+                logger.error(f"Failed to process text from {pdf_name}: {e}")
 
         total_chunks = len(all_paragraphs)
-        print(f"[INFO] Text processing complete: {successful_pdfs}/{len(pdf_files)} PDFs, {total_chunks} chunks")
-        
+        logger.info(f"Text processing complete: {successful_pdfs}/{len(pdf_files)} PDFs, {total_chunks} text chunks prepared")
+
         return {
             "success": successful_pdfs > 0,
             "total_chunks": total_chunks,

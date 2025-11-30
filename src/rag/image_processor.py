@@ -17,7 +17,7 @@ from collections import Counter
 from typing import List, Dict, Any, Tuple  # <--- THIS WAS MISSING
 from .vector_db import VectorDatabase
 from ..utils.config import config
-
+from src.utils.logger import logger
 class ImageProcessor:
     """Image processing and indexing"""
     
@@ -26,32 +26,21 @@ class ImageProcessor:
         self.clip_processor = None
         self.clip_model = None
         
-        #self._initialize_clip()
+        self._initialize_clip()
         
         # Minimum size to consider something an image
         self.min_image_size = (config.rag.min_image_size, config.rag.min_image_size)
     
-    def _ensure_model_loaded(self):
-        """Lazy load CLIP model"""
-        if self.clip_model is None:
-            try:
-                print("[INFO] Lazy loading CLIP model...")
-                self.clip_processor = CLIPProcessor.from_pretrained(config.models.clip_model_name)
-                self.clip_model = CLIPModel.from_pretrained(config.models.clip_model_name)
-                print("[INFO] CLIP model loaded successfully")
-            except Exception as e:
-                print(f"[ERROR] Failed to load CLIP model: {e}")
-                raise
 
     def _initialize_clip(self):
         """Initialize CLIP model"""
         try:
-            print("[INFO] Loading CLIP model...")
+            logger.info("Loading CLIP model...")
             self.clip_processor = CLIPProcessor.from_pretrained(config.models.clip_model_name)
             self.clip_model = CLIPModel.from_pretrained(config.models.clip_model_name)
-            print("[INFO] CLIP model loaded successfully")
+            logger.info("CLIP model loaded successfully")
         except Exception as e:
-            print(f"[ERROR] Failed to load CLIP model: {e}")
+            logger.error(f"Failed to load CLIP model: {e}")
             raise
 
     def enhance_image_for_ocr(self, image: Image.Image) -> Image.Image:
@@ -177,7 +166,7 @@ class ImageProcessor:
             return []
     def process_pdfs_directory(self, pdf_dir: str = None, text_embedder=None) -> Dict[str, Any]:
         """Process images from all PDFs in a directory"""
-        self._ensure_model_loaded()
+        
         if pdf_dir is None: pdf_dir = config.system.pdf_dir
         
         if not os.path.exists(pdf_dir):
@@ -190,7 +179,7 @@ class ImageProcessor:
         
         for pdf_path in pdf_files:
             pdf_name = os.path.basename(pdf_path)
-            print(f"[INFO] Processing images: {pdf_name}")
+            logger.info(f"Processing images from {pdf_name}...")
             
             try:
                 doc = fitz.open(pdf_path)
@@ -250,7 +239,7 @@ class ImageProcessor:
             except Exception as e:
                 print(f"[ERROR] Failed to process images from {pdf_name}: {e}")
 
-        print(f"[INFO] Image processing complete: {len(all_images)} images indexed")
+        logger.info(f"Image processing complete: {successful_pdfs}/{len(pdf_files)} PDFs, {len(all_images)} images indexed")
         
         return {
             "success": successful_pdfs > 0,
@@ -260,17 +249,17 @@ class ImageProcessor:
     
     def encode_text_query(self, query: str) -> List[float]:
         """Encode text query for CLIP similarity search"""
-        self._ensure_model_loaded()
+        
         try:
             text_inputs = self.clip_processor(text=query, return_tensors="pt", padding=True)
             with torch.no_grad():
                 clip_query_emb = self.clip_model.get_text_features(**text_inputs)[0]
             return clip_query_emb.cpu().tolist()
         except Exception as e:
-            print(f"[ERROR] Failed to encode text query with CLIP: {e}")
+            logger.error(f"Failed to encode text query: {e}")
             return []
     
     def get_clip_model(self):
         """Get CLIP model and processor"""
-        self._ensure_model_loaded()
+    
         return self.clip_model, self.clip_processor
