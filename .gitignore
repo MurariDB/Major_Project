@@ -204,4 +204,30 @@ cover/age/
 .dmypy/     
 .pytest_cache/
 
-    
+ # Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.sqlite3 # If your DB is local SQLite
+faiss_index.idx
+knowledge_base.db
+evaluation_results.csv # If this is a generated file
+
+# Node/Next.js
+node_modules/
+.next/
+dist/
+
+# Environment Variables
+.env
+.env.*
+*.log
+
+# Operating System / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Poetry Lock File (Optional - Remove if you want to commit it)
+poetry.lock   
