@@ -34,6 +34,7 @@ class TextProcessor:
             logger.error(f"Failed to load text embedder: {e}")
             raise
     
+
     def extract_pdf_text_by_pages(self, pdf_path: str) -> List[Tuple[int, str]]:
         """Extract text from PDF page by page"""
         try:

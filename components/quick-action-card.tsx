@@ -1,4 +1,8 @@
+// components/quick-action-card.tsx
+
 "use client"
+
+import { cn } from '@/lib/utils' // Assuming you have a cn utility for class merging
 
 interface QuickActionCardProps {
   title: string
@@ -19,6 +23,18 @@ export default function QuickActionCard({
   onClick,
   gradient,
 }: QuickActionCardProps) {
+
+  // Dynamically set button classes based on the desired color scheme
+  const buttonClass = cn(
+    "py-2 px-4 rounded-lg font-bold transition-all",
+    // Base style: white text, background from the gradient prop
+    "bg-white text-gray-800 hover:bg-gray-100", // Using explicit gray to stand out against white card
+
+    // Custom coloring for the text and hover state inside the gradient
+    buttonColor === "primary" && "text-blue-600 hover:text-blue-800",
+    buttonColor === "success" && "text-green-600 hover:text-green-800",
+  );
+
   return (
     <div
       className={`bg-gradient-to-br ${gradient} rounded-xl p-8 text-white relative overflow-hidden group cursor-pointer hover:shadow-xl transition-shadow`}
@@ -32,10 +48,13 @@ export default function QuickActionCard({
         <p className="text-white/90 mb-6 text-sm leading-relaxed">{description}</p>
         <button
           onClick={onClick}
-          className={`btn ${buttonColor === "primary" ? "btn-primary" : "btn-success"} bg-white text-(--color-text-primary) hover:bg-gray-100 font-semibold`}
+          className={cn(
+            "inline-flex items-center justify-center gap-2", // Added flex utilities for icon alignment
+            buttonClass
+          )}
         >
           {buttonText}
-          <span>→</span>
+          <span className="text-xl">→</span>
         </button>
       </div>
     </div>

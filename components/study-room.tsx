@@ -117,57 +117,16 @@ export default function StudyRoom() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {/* Modern Header */}
-      <div className="border-b border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white font-bold">
-                🧠
-              </div>
-              <div>
-                <h1 className="font-semibold text-gray-900 dark:text-white text-lg">Study Room</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Interactive learning with your AI tutor</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {/* Mode Selector */}
-              <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
-                {(["text", "voice"] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setInteractionMode(mode)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                      interactionMode === mode
-                        ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
-                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                    }`}
-                  >
-                    {mode === "text" ? "⌨️ Text" : "🎙️ Voice"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Read Aloud Button */}
-              <button
-                onClick={() => setEnableReadAloud(!enableReadAloud)}
-                className={`p-2.5 rounded-lg transition-all ${
-                  enableReadAloud
-                    ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                    : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700"
-                }`}
-                title={enableReadAloud ? "Read-aloud enabled" : "Read-aloud disabled"}
-              >
-                🔊
-              </button>
-            </div>
-          </div>
-        </div>
+    // FIX 2: Set height to MINIMUM full height and use flex column
+    <div className="min-h-full flex flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+      
+      {/* Structural Fix: Removed redundant header. Title is now simplified */}
+      <div className="max-w-6xl w-full mx-auto px-4 pt-4 pb-0">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">🧠 Study Room</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400">Interactive learning with your AI tutor</p>
       </div>
 
-      {/* Chat Area - Modern scrollable */}
+      {/* Chat Area - FIX 2: Use flex-1 to take up all available vertical space, allowing the overflow-y-auto to manage scroll */}
       <div
         ref={messagesContainerRef}
         className="flex-1 overflow-y-auto max-w-6xl w-full mx-auto px-4 py-6 space-y-4 scroll-smooth"
@@ -203,13 +162,47 @@ export default function StudyRoom() {
         </div>
       </div>
 
-      {/* Modern Input Area */}
-      <div className="border-t border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4">
-        <div className="max-w-6xl mx-auto">
+      {/* Modern Input Area (Now includes controls and fixed height for alignment) */}
+      <div className="border-t border-gray-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-4 sticky bottom-0 z-10">
+        <div className="max-w-6xl mx-auto space-y-3">
+          
+          {/* Controls: Mode Selector & Read Aloud (Now in the footer) */}
+          <div className="flex items-center justify-between">
+            {/* Mode Selector */}
+            <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-lg">
+              {(["text", "voice"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setInteractionMode(mode)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                    interactionMode === mode
+                      ? "bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {mode === "text" ? "⌨️ Text" : "🎙️ Voice"}
+                </button>
+              ))}
+            </div>
+
+            {/* Read Aloud Button */}
+            <button
+              onClick={() => setEnableReadAloud(!enableReadAloud)}
+              className={`p-2 rounded-lg transition-all text-sm font-medium flex items-center gap-1 ${
+                enableReadAloud
+                  ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                  : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-700"
+              }`}
+              title={enableReadAloud ? "Read-aloud enabled" : "Read-aloud disabled"}
+            >
+              🔊 Read Aloud {enableReadAloud ? 'ON' : 'OFF'}
+            </button>
+          </div>
+
           {interactionMode === "voice" ? (
             <VoiceInput onInput={handleVoiceInput} onSend={handleSendMessage} />
           ) : (
-            <div className="flex gap-3">
+            <div className="flex items-stretch gap-3">
               <input
                 type="text"
                 value={inputValue}
@@ -217,12 +210,14 @@ export default function StudyRoom() {
                 onKeyPress={(e) => e.key === "Enter" && !isLoading && handleSendMessage()}
                 placeholder="Ask me anything about your materials..."
                 disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all disabled:opacity-50"
+                // FIX 3: Enforce h-12 on input for alignment
+                className="flex-1 px-4 py-3 h-12 bg-gray-100 dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 transition-all disabled:opacity-50"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!inputValue.trim() || isLoading}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none"
+                // FIX 3: Enforce h-12 on button for alignment
+                className="h-12 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-400 text-white font-medium rounded-xl transition-all shadow-lg hover:shadow-xl disabled:shadow-none"
               >
                 {isLoading ? "..." : "Send"}
               </button>

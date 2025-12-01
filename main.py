@@ -127,6 +127,7 @@ class VoiceRAGAssistant:
             ).astype('float32')
             
             success = self.vector_db.save_text_faiss_index(embeddings, all_paragraphs)
+            self.vector_db.save_bm25_index(all_paragraphs)
             if not success:
                 print("❌ Failed to save FAISS index.")
         else:

@@ -11,11 +11,16 @@ import faiss
 import numpy as np
 from typing import Optional, List, Dict, Any, Tuple
 from ..utils.config import config
+import pickle
+from rank_bm25 import BM25Okapi
+from typing import List
 
 # Constants for FAISS/SQLite persistence
 DB_PATH = config.rag.image_db_path 
 FAISS_INDEX_PATH = "./faiss_index.idx" 
 ID_MAP_PATH = "./id_map.json" 
+BM25_INDEX_PATH = "./bm25_index.pkl"
+BM25_CORPUS_PATH = "./bm25_corpus.pkl"
 
 class VectorDatabase:
     """Vector database manager using FAISS and SQLite"""
@@ -28,7 +33,9 @@ class VectorDatabase:
         self.metadata_conn = None
         self._thread_local_connections = threading.local()
         self._connection_lock = threading.Lock()
-        
+        self.bm25_index = None
+        self.bm25_corpus = []
+        self._load_bm25_index()
         self._initialize_metadata_db()
         self._load_faiss_indexes()
 
@@ -255,7 +262,57 @@ class VectorDatabase:
         except Exception as e:
             print(f"[ERROR] Failed to query text FAISS index: {e}")
             return []
+
+    def _load_bm25_index(self):
+        """Load BM25 index from disk"""
+        try:
+            if os.path.exists(BM25_INDEX_PATH) and os.path.exists(BM25_CORPUS_PATH):
+                with open(BM25_INDEX_PATH, 'rb') as f:
+                    self.bm25_index = pickle.load(f)
+                with open(BM25_CORPUS_PATH, 'rb') as f:
+                    self.bm25_corpus = pickle.load(f)
+                print(f"[INFO] Loaded BM25 index with {len(self.bm25_corpus)} documents")
+        except Exception as e:
+            print(f"[WARN] No BM25 index found: {e}")
+    
+    def save_bm25_index(self, all_paragraphs: List[Dict]):
+        """Build and save BM25 index"""
+        try:
+            tokenized_corpus = [p['text'].lower().split() for p in all_paragraphs]
+            self.bm25_index = BM25Okapi(tokenized_corpus)
+            self.bm25_corpus = all_paragraphs
             
+            with open(BM25_INDEX_PATH, 'wb') as f:
+                pickle.dump(self.bm25_index, f)
+            with open(BM25_CORPUS_PATH, 'wb') as f:
+                pickle.dump(self.bm25_corpus, f)
+            
+            print(f"[INFO] BM25 index saved with {len(tokenized_corpus)} documents")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Failed to save BM25 index: {e}")
+            return False
+    
+    def query_bm25(self, query: str, n_results: int = 10) -> List[Dict]:
+        """Query BM25 index"""
+        if not self.bm25_index or not self.bm25_corpus:
+            return []
+        
+        tokenized_query = query.lower().split()
+        scores = self.bm25_index.get_scores(tokenized_query)
+        
+        # Get top-k indices
+        top_indices = np.argsort(scores)[::-1][:n_results]
+        
+        results = []
+        for idx in top_indices:
+            if scores[idx] > 0:  # Only include non-zero scores
+                doc = self.bm25_corpus[idx].copy()
+                doc['bm25_score'] = float(scores[idx])
+                results.append(doc)
+        
+        return results
+
     # --- Collection Counts ---
     
     def get_text_collection_count(self) -> int:

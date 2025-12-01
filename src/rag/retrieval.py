@@ -12,6 +12,39 @@ from ..utils.config import config
 from ..utils.mmr_ranker import MMRRanker
 from ..utils.knowledge_graph import KnowledgeGraphLoader
 from ..utils.graph_retrieval import GraphRetrieval
+
+def reciprocal_rank_fusion(dense_results: List[Dict], sparse_results: List[Dict], k: int = 60) -> List[str]:
+    """
+    Combines dense and sparse results using Reciprocal Rank Fusion (RRF).
+    Ranks are based on the document's position (rank) in each list.
+    """
+    scores_dense = {}
+    scores_sparse = {}
+    
+    # 1. Score dense results
+    for rank, doc in enumerate(dense_results, 1):
+        # We need a stable identifier. Using doc['id'] from the dense result.
+        doc_id = doc['id']
+        scores_dense[doc_id] = scores_dense.get(doc_id, 0.0) + 1.0 / (k + rank)
+        
+    # 2. Score sparse results
+    for rank, doc in enumerate(sparse_results, 1):
+        # We need a stable identifier. Using doc['id'] from the sparse result.
+        # Assuming sparse result objects also have an 'id' field, if not, this will need adjustment.
+        doc_id = doc['id'] if 'id' in doc else f"sparse_doc_{rank}" # Fallback if missing ID
+        scores_sparse[doc_id] = scores_sparse.get(doc_id, 0.0) + 1.0 / (k + rank)
+
+    # 3. Combine scores (RRF formula is inherently additive for combined lists)
+    combined_scores = scores_dense.copy()
+    for doc_id, score in scores_sparse.items():
+        combined_scores[doc_id] = combined_scores.get(doc_id, 0.0) + score
+    
+    # 4. Sort by combined score
+    ranked = sorted(combined_scores.items(), key=lambda item: item[1], reverse=True)
+    
+    # Return document IDs in order
+    return [doc_id for doc_id, _ in ranked]
+
 class RetrievalSystem:
     """Hybrid retrieval system for text and images"""
     
@@ -20,94 +53,89 @@ class RetrievalSystem:
         self.mmr_ranker = MMRRanker()
         self.kg_loader = KnowledgeGraphLoader(self.vector_db)
 
+
+
     def retrieve_text(self, query: str, text_embedder, top_k: int = 5, 
-                     fetch_k: int = 15, diversity: float = 0.6) -> Tuple[List[str], List[Dict]]:
-        """Retrieve relevant text chunks with KG boost and MMR reranking"""
+                 fetch_k: int = 15, diversity: float = 0.6) -> Tuple[List[str], List[Dict]]:
+        """Hybrid retrieval with RRF + Graph expansion"""
         try:
-            query_emb = text_embedder.encode(
-                query, 
-                normalize_embeddings=True,
-                convert_to_tensor=False
-            )
+            # 1. Dense retrieval (FAISS)
+            query_emb = text_embedder.encode(query, normalize_embeddings=True, convert_to_tensor=False)
             query_emb = np.array(query_emb, dtype=np.float32).reshape(1, -1)
+            dense_results = self.vector_db.query_text(query_embedding=query_emb, n_results=fetch_k)
             
-            results = self.vector_db.query_text(
-                query_embedding=query_emb,
-                n_results=fetch_k
-            ) 
+            # 2. Sparse retrieval (BM25)
+            sparse_results = self.vector_db.query_bm25(query, n_results=fetch_k)
             
-            if not results: return [], []
+            # 3. RRF Fusion
+            fused_ids = reciprocal_rank_fusion(dense_results, sparse_results)
             
+            # 4. Get full metadata for fused IDs
+            id_to_result = {r['id']: r for r in dense_results + sparse_results}
+            fused_results = [id_to_result[doc_id] for doc_id in fused_ids if doc_id in id_to_result]
+            
+            # 5. KG Enhancement (existing code)
             kg_enhanced_results = []
-            pdf_paths = list(set([r.get('source_pdf', '') for r in results]))
+            pdf_paths = list(set([r.get('source_pdf', '') for r in fused_results]))
             kg = self.kg_loader.load_knowledge_graph(pdf_paths)
             
-            for result in results:
+            for result in fused_results:
                 result['kg_score'] = 0.0
                 if result.get('source_pdf') in kg:
                     tags = self.kg_loader.get_paragraph_tags(result['id'])
                     query_words = set(query.lower().split())
-                    common_words = query_words.intersection(set(tags))
-                    if common_words:
+                    if query_words.intersection(set(tags)):
                         result['kg_score'] += 0.2
                 
-                result['score'] = (1.0 - result.get('distance', 1.0)) + result['kg_score']
+                result['score'] = result.get('bm25_score', 0) + (1.0 - result.get('distance', 1.0)) + result['kg_score']
                 kg_enhanced_results.append(result)
             
-            doc_texts = [r['text'] for r in kg_enhanced_results]
+            # 6. MMR Diversity (existing code)
+            doc_texts = [r['text'] for r in kg_enhanced_results[:fetch_k]]
             doc_embs = text_embedder.encode(doc_texts, convert_to_tensor=False)
             doc_embs = np.array(doc_embs, dtype=np.float32)
             
             selected_ids = self.mmr_ranker.calculate_mmr(
-                query_emb.flatten(), 
-                doc_embs, 
-                [r['id'] for r in kg_enhanced_results], 
-                top_k, 
-                diversity
+                query_emb.flatten(), doc_embs, 
+                [r['id'] for r in kg_enhanced_results[:fetch_k]], 
+                top_k, diversity
             )
             
             final_results = [r for r in kg_enhanced_results if r['id'] in selected_ids]
-            selected_docs = [r['text'] for r in final_results]
-            selected_metas = [{'source': r['source_pdf'], 'page': r['page_num'], 'id': r['id']} for r in final_results]
-
-            # NEW: Graph expansion
+            
+            # 7. Graph Expansion (existing code)
             try:
                 graph = GraphRetrieval(self.vector_db)
                 initial_ids = [r['id'] for r in final_results]
-                expanded_ids = graph.expand_results(initial_ids, max_expansion=1)
+                expanded_ids = graph.expand_results(initial_ids, max_expansion=2)
                 
-                # Fetch expanded chunks
                 if len(expanded_ids) > len(initial_ids):
                     with self.vector_db._connection_lock:
                         conn = self.vector_db._get_thread_safe_connection()
                         cursor = conn.cursor()
-                        
                         placeholders = ','.join('?' * len(expanded_ids))
                         expanded_results = cursor.execute(f"""
                             SELECT id, text, source_pdf, page_num
-                            FROM paragraphs
-                            WHERE id IN ({placeholders})
+                            FROM paragraphs WHERE id IN ({placeholders})
                         """, expanded_ids).fetchall()
                         
-                        # Add new chunks
                         for row in expanded_results:
                             para_id, text, source_pdf, page_num = row
                             if para_id not in initial_ids:
-                                selected_docs.append(text)
-                                selected_metas.append({
-                                    'source': source_pdf,
-                                    'page': page_num,
-                                    'id': para_id
+                                final_results.append({
+                                    'id': para_id, 'text': text,
+                                    'source_pdf': source_pdf, 'page_num': page_num
                                 })
-                    
-                    print(f"[INFO] Graph expanded results from {len(initial_ids)} to {len(selected_docs)} chunks")
             except Exception as e:
                 print(f"[WARN] Graph expansion failed: {e}")
-
+            
+            selected_docs = [r['text'] for r in final_results]
+            selected_metas = [{'source': r['source_pdf'], 'page': r['page_num'], 'id': r['id']} for r in final_results]
+            
             return selected_docs, selected_metas
             
         except Exception as e:
-            print(f"[ERROR] Text retrieval failed: {e}")
+            print(f"[ERROR] Hybrid retrieval failed: {e}")
             return [], []
 
     def extract_pages_from_text_metadata(self, text_metas: List[Dict]) -> Set[int]:

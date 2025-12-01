@@ -1,0 +1,11 @@
+{
+  "avg_rouge_l_precision": 0.05271673176142194,
+  "avg_rouge_l_recall": 0.5499053134813536,
+  "avg_rouge_l_f1": 0.09369730076580743,
+  "avg_bleu": 0.01229334718829968,
+  "avg_meteor": 0.23338343581843307,
+  "avg_exact_match": 0.0,
+  "avg_word_overlap_f1": 0.12784891597101364,
+  "avg_faithfulness_score": 0.2951219512195122,
+  "avg_hallucinations": 3.1219512195121952
+}

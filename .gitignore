@@ -231,3 +231,6 @@ Thumbs.db
 
 # Poetry Lock File (Optional - Remove if you want to commit it)
 poetry.lock   
+bm25_index.pkl
+bm25_corpus.pkl
+# --- CRITICAL FIXES IN main.py ---
