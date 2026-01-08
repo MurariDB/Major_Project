@@ -88,7 +88,7 @@ sudo apt-get install portaudio19-dev python3-pyaudio ffmpeg tesseract-ocr
 ```
 
 **Download Models:**
-Run the setup script to download the necessary LLM and embedding models.
+Run the setup scripts to download the necessary LLM and embedding models.
 
 ```bash
 python setup_offline.py
