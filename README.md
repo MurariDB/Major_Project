@@ -1,4 +1,3 @@
-
 # EdgeLearn: Offline Multimodal AI Science Tutor
 
 **EdgeLearn** is a privacy-first, offline-capable AI tutoring assistant designed to help students master science topics. It utilizes a **Hybrid RAG (Retrieval-Augmented Generation)** architecture to answer questions based *strictly* on uploaded course materials (PDFs).
@@ -17,7 +16,7 @@ The system features a **Next.js** frontend for a modern UI and a **FastAPI** bac
 * **Multimodal Answers:** Retrieves and displays relevant **images** and diagrams from your PDFs alongside text answers.
 * **Voice Interaction:** Full voice-to-voice support using:
     * **Input:** Faster-Whisper / Transformers for speech-to-text.
-    * **Output:** Hybrid TTS engine (Coqui TTS / EdgeTTS).
+    * **Output:** Hybrid TTS engine (Coqui TTS / Piper).
 * **Interactive Dashboard:** A study room interface with real-time transcription, chat history, and document management.
 
 ---
@@ -25,10 +24,11 @@ The system features a **Next.js** frontend for a modern UI and a **FastAPI** bac
 ## 🛠 Tech Stack
 
 ### **Backend (Python)**
+* **Package Manager:** Poetry
 * **Core Framework:** FastAPI
 * **LLM:** GPT4All (`Llama-3.2-1B-Instruct-Q4_0.gguf`)
 * **Vector DB:** FAISS (Dense) & SQLite (Metadata/Images)
-* **Audio:** PyAudio, SoundDevice, Whisper, Coqui TTS
+* **Audio:** PyAudio, SoundDevice, Whisper
 * **Computer Vision:** OpenCV, Pillow, PyTesseract (OCR)
 
 ### **Frontend (TypeScript)**
@@ -43,8 +43,9 @@ The system features a **Next.js** frontend for a modern UI and a **FastAPI** bac
 ## 📋 Prerequisites
 
 * **OS:** Windows, macOS, or Linux
-* **Python:** 3.10+
+* **Python:** 3.10 or 3.11 (Required by `pyproject.toml`)
 * **Node.js:** 18.17+ (Required for Next.js 16)
+* **Poetry:** [Install Poetry](https://python-poetry.org/docs/#installation)
 * **Hardware:**
     * RAM: 8GB minimum (16GB recommended for smooth LLM/TTS performance).
     * Disk: ~5GB free space for models.
@@ -60,27 +61,21 @@ cd EdgeLearn
 
 ```
 
-### 2. Backend Setup (Python)
+### 2. Backend Setup (Poetry)
 
-It is highly recommended to use a virtual environment.
+This project uses **Poetry** for dependency management.
 
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
 # Install dependencies
-pip install -r requirements.txt
+poetry install
+
+# (Optional) Activate the virtual environment shell
+poetry shell
 
 ```
 
 **System Dependencies (Linux only):**
-If you are on Linux, you may need to install audio and vision libraries:
+If you are on Linux, you may need to install audio and vision libraries manually:
 
 ```bash
 sudo apt-get install portaudio19-dev python3-pyaudio ffmpeg tesseract-ocr
@@ -88,11 +83,11 @@ sudo apt-get install portaudio19-dev python3-pyaudio ffmpeg tesseract-ocr
 ```
 
 **Download Models:**
-Run the setup scripts to download the necessary LLM and embedding models.
+Run the setup scripts using `poetry run` to download the necessary LLM and embedding models.
 
 ```bash
-python setup_offline.py
-python setup_voices.py
+poetry run python setup_offline.py
+poetry run python setup_voices.py
 
 ```
 
@@ -119,8 +114,8 @@ To run the full application, you need to run the **Backend API** and the **Front
 This starts the FastAPI server which handles the AI logic.
 
 ```bash
-# Make sure your venv is activated
-uvicorn api_server:app --host 0.0.0.0 --port 8080 --reload
+# Run the server using Poetry
+poetry run uvicorn api_server:app --host 0.0.0.0 --port 8080 --reload
 
 ```
 
@@ -146,8 +141,7 @@ npm run dev
 EdgeLearn/
 ├── api_server.py          # FastAPI entry point (Bridges Frontend & Logic)
 ├── main.py                # Core RAG Assistant Logic
-├── create_dataset.py      # Script to process PDFs for RAG
-├── requirements.txt       # Python dependencies
+├── pyproject.toml         # Poetry dependencies & configuration
 ├── package.json           # Frontend dependencies
 ├── src/
 │   ├── audio/             # Speech-to-Text & Text-to-Speech modules
