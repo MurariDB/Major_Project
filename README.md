@@ -1,4 +1,4 @@
-```markdown
+
 # EdgeLearn: Offline Multimodal AI Science Tutor
 
 **EdgeLearn** is a privacy-first, offline-capable AI tutoring assistant designed to help students master science topics. It utilizes a **Hybrid RAG (Retrieval-Augmented Generation)** architecture to answer questions based *strictly* on uploaded course materials (PDFs).
